@@ -1,0 +1,250 @@
+--изменили osm_id
+alter table streets_turkey_2023 rename osmid to osm_id;
+update streets_turkey_2023 
+set osmid = 
+case when SUBSTRING(osmid, 1, 1) = '['
+then SPLIT_PART(regexp_replace(osmid, '[', '', 'g'), ',',1)
+else osmid
+end;
+
+--изменили fclass
+alter table streets_turkey_2023 rename highway to fclass;
+update streets_turkey_2023 
+set fclass = 
+case when SUBSTRING(osmid, 1, 1) = '['
+then SPLIT_PART(regexp_replace(osmid, '[', '', 'g'), ',',1)
+else osmid
+end;
+
+--сделали maxspeed целочисленным
+update streets_turkey_2023 
+set maxspeed = div(maxspeed//10)*10
+
+--переименовали геометрию 
+alter table streets_turkey_2023 rename geometry to geom;
+
+--добавили первичный ключ 
+ALTER TABLE streets_turkey_2023 
+ADD COLUMN id BIGSERIAL PRIMARY KEY,
+ADD column if not exists source,
+ADD column if not exists target;
+
+--отчистили поля 
+alter table streets_turkey_2023 delete from source;
+alter table streets_turkey_2023 delete from target;
+
+--заполнили поля source и target 
+--создали таблицу вершин
+SELECT  pgr_createTopology('streets_turkey_2023', 0.001,'geom', 'id', 'source', 'target');
+
+--добавили все поля 
+ALTER TABLE streets_turkey_2023
+ADD min_work_m DOUBLE PRECISION, 
+ADD min_work_d DOUBLE PRECISION,
+ADD min_work_e DOUBLE PRECISION,
+ADD min_work_n DOUBLE PRECISION,
+ADD min_weekday_m DOUBLE PRECISION,
+ADD min_weekday_d DOUBLE PRECISION,
+ADD min_weekday_e DOUBLE PRECISION,
+ADD min_weekday_n DOUBLE PRECISION,
+ADD min_work_m_rev DOUBLE PRECISION,
+ADD min_work_d_rev DOUBLE PRECISION,
+ADD min_work_n_rev DOUBLE PRECISION,
+ADD min_work_e_rev DOUBLE PRECISION,
+ADD min_weekday_m_rev DOUBLE PRECISION,
+ADD min_weekday_d_rev DOUBLE PRECISION,
+ADD min_weekday_n_rev DOUBLE PRECISION,
+ADD min_weekday_e_rev DOUBLE PRECISION,
+ADD min_avg DOUBLE PRECISION,
+ADD min_avg_rev DOUBLE PRECISION,
+ADD ar_auto_bool BOOLEAN,
+ADD ar_foot_bool BOOLEAN,
+ADD f_zlev int,
+ADD t_zlev int,
+add column if not exists minutes DOUBLE precision
+add column if not exists minutes_foot DOUBLE precision;
+
+UPDATE streets_turkey_2023
+set 
+minutes = meters/maxspeed*0.06,
+munites_foot = meters/4.5*0.06;
+
+
+update streets_turkey_2023 
+set bridge = 
+case when bridge is not null 
+then 'T'
+else 'F'
+end;
+
+update streets_turkey_2023 
+set tunnel = 
+case when tunnel is not null 
+then 'T'
+else 'F'
+end;
+
+
+update streets_turkey_2023 
+set foot =
+case when 
+"fclass" <> 'bridleway' AND fclass <> 'motorway' AND fclass <> 'motorway_link' 
+then 1
+else 0
+end;
+
+update streets_turkey_2023 
+set auto =
+case when 
+"fclass" = 'living_street' OR "fclass" = 'motorway' OR "fclass" = 'motorway_link' OR "fclass" = 'primary' OR "fclass" = 'primary_link' OR "fclass" = 'residential' OR "fclass" = 'secondary' OR "fclass" = 'secondary_link' OR "fclass" = 'service' OR "fclass" = 'tertiary' OR "fclass" = 'tertiary_link' OR "fclass" = 'track' OR "fclass" = 'track_grade1' OR "fclass" = 'track_grade2' OR "fclass" = 'track_grade3' OR "fclass" = 'track_grade4' OR "fclass" = 'track_grade5' OR "fclass" = 'trunk' OR "fclass" = 'trunk_link' OR "fclass" = 'unclassified' OR "fclass" = 'unknown'
+then 1 
+else 0 
+end;
+
+update streets_turkey_2023 
+set oneway = 'B' WHERE oneway = 'false',
+set oneway = 'F' WHERE oneway = 'True' and revresed = 'True', 
+set oneway = 'T' WHERE oneway = 'True' and revresed = 'False';
+
+alter table streets_turkey_2023 drop column revresed;
+
+UPDATE streets_turkey_2023
+set ar_auto_bool  = TRUE
+WHERE auto=1;
+UPDATE streets_turkey_2023
+set ar_auto_bool  = FALSE
+WHERE auto=0;
+UPDATE streets_turkey_2023
+set ar_foot_bool  = TRUE
+WHERE foot=1;
+UPDATE streets_turkey_2023
+set ar_foot_bool  = FALSE
+WHERE foot=0;
+
+UPDATE streets_turkey_2023
+set 
+min_work_m =  minutes*1.5, 
+min_work_d =  minutes*1.5,
+min_work_e =  minutes*1.5,
+min_work_n =  minutes*1.5,
+
+min_weekday_m =  minutes*1.5,
+min_weekday_d =  minutes*1.5,
+min_weekday_e =  minutes*1.5,
+min_weekday_n =  minutes*1.5,
+
+min_avg =  minutes*1.5,
+
+min_work_m_rev =  minutes*1.5,
+min_work_d_rev =  minutes*1.5,
+min_work_n_rev =  minutes*1.5,
+min_work_e_rev =  minutes*1.5,
+
+min_weekday_m_rev =  minutes*1.5,
+min_weekday_d_rev =  minutes*1.5,
+min_weekday_n_rev =  minutes*1.5,
+min_weekday_e_rev =  minutes*1.5,
+
+min_avg_rev =  minutes*1.5
+
+WHERE oneway = 'B';
+
+UPDATE streets_turkey_2023 
+set 
+min_work_m =  minutes*1.5, 
+min_work_d =  minutes*1.5,
+min_work_e =  minutes*1.5,
+min_work_n =  minutes*1.5,
+
+min_weekday_m =  minutes*1.5,
+min_weekday_d =  minutes*1.5,
+min_weekday_e =  minutes*1.5,
+min_weekday_n =  minutes*1.5,
+min_avg =  minutes*1.5
+WHERE oneway = 'F';
+
+UPDATE streets_turkey_2023 
+set min_work_m = 1000000, 
+min_work_d = 1000000,
+min_work_e = 1000000,
+min_work_n = 1000000,
+min_weekday_m = 1000000,
+min_weekday_d = 1000000,
+min_weekday_e = 1000000,
+min_weekday_n = 1000000,
+min_avg = 1000000
+WHERE oneway = 'T';
+
+UPDATE streets_turkey_2023
+SET min_work_m_rev =  minutes*1.5,
+min_work_d_rev =  minutes*1.5,
+min_work_n_rev =  minutes*1.5,
+min_work_e_rev =  minutes*1.5,
+min_weekday_m_rev =  minutes*1.5,
+min_weekday_d_rev =  minutes*1.5,
+min_weekday_n_rev =  minutes*1.5,
+min_weekday_e_rev =  minutes*1.5,
+min_avg_rev =  minutes*1.5
+WHERE oneway = 'T';
+
+UPDATE streets_turkey_2023 
+set min_work_m_rev = 1000000, 
+min_work_d_rev = 1000000,
+min_work_e_rev = 1000000,
+min_work_n_rev = 1000000,
+min_weekday_m_rev = 1000000,
+min_weekday_d_rev = 1000000,
+min_weekday_e_rev = 1000000,
+min_weekday_n_rev = 1000000,
+min_avg_rev = 1000000
+WHERE oneway = 'F';
+
+UPDATE streets_turkey_2023
+set f_zlev = 0,
+t_zlev = 0;
+
+
+SELECT pgr_analyzeGraph('streets_turkey_2023' ,0.001,'geom','osm_id','source','target','true');
+
+--Анализируем на проблемы с односторонним движением
+SELECT pgr_analyzeOneway('streets_turkey_2023',
+ARRAY['', 'B', 'F'],
+ARRAY['','B', 'T'],
+ARRAY['', 'B', 'T'],
+ARRAY['', 'B', 'F'],
+oneway:='oneway');
+
+
+-- SELECT count(*)
+--     FROM streets_turkey_2023 a, streets_turkey_2023_vertices_pgr b, streets_turkey_2023_vertices_pgr c
+--     WHERE a.source=b.id AND b.cnt=1 AND a.target=c.id AND c.cnt=1;
+
+with main_table as (
+SELECT count(*) as count 
+    FROM streets_turkey_2023 a, streets_turkey_2023_vertices_pgr b, streets_turkey_2023_vertices_pgr c
+    WHERE a.source=b.id AND b.cnt=1 AND a.target=c.id AND c.cnt=1)
+		
+select 
+case when count != 0 
+then (
+DELETE FROM streets_turkey_2023
+WHERE id in (SELECT a.id
+    FROM streets_turkey_2023, streets_turkey_2023_vertices_pgr b, streets_turkey_2023_vertices_pgr c
+    WHERE a.source=b.id AND b.cnt=1 AND a.target=c.id AND c.cnt=1);
+		
+		DROP TABLE streets_turkey_2023_vertices_pgr;
+		SELECT pgr_createVerticesTable('streets_turkey_2023','geom','source','target'))
+	end;
+	
+	
+ALTER TABLE streets_turkey_2023 RENAME COLUMN id to link_id;
+
+ALTER TABLE streets_turkey_2023_vertices_pgr RENAME COLUMN the_geom to geom;
+
+CREATE INDEX ar_auto_bool_turkey_idx ON streets_turkey_2023(ar_auto_bool);
+CREATE INDEX ar_foot_bool_turkey_idx ON streets_turkey_2023(ar_foot_bool);
+
+
+
+
+
