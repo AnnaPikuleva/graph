@@ -1,0 +1,39 @@
+import geopandas as gpd
+import osmnx as ox
+import networkx as nx
+from sqlalchemy import create_engine
+import psycopg2
+
+engine = create_engine('postgresql+psycopg2://postgres:______@192.168.2.10/gi_routing')
+
+def built_graph (path,name):
+    gdf = gpd.read_file(path)
+    geometry = gdf['geometry']
+
+    list_simplify_graph = []
+    list_graph = []
+
+    for index in geometry:
+        graph = ox.graph.graph_from_polygon(index, network_type='all', simplify=False,
+                                               retain_all= True, truncate_by_edge = True, clean_periphery = True)
+        graph = ox.project_graph(graph, 3857)
+        print(index)
+        # graph_new = ox.consolidate_intersections(graph, rebuild_graph=True, tolerance=15, dead_ends=False)
+        # graph_new = ox.simplify_graph(graph)
+
+        list_graph.append(graph)
+        # list_simplify_graph.append(graph_new)
+
+
+    full_graph = nx.compose_all(list_graph)
+    # full_simplify_graph = nx.compose_all(list_simplify_graph)
+    # ox.save_graph_geopackage(full_graph, filepath="turkey.gpkg")
+
+    # nodes, edges = ox.graph_to_gdfs(full_graph, nodes=True, edges=True)
+    # nodes_simplify, edges_simplify = ox.graph_to_gdfs(full_simplify_graph, nodes=True, edges=True)
+    #
+    # nodes.to_postgis(f"_nodes_graph_{name}", engine)
+    # edges.to_postgis(f"_edges_graph_{name}", engine)
+
+    # # nodes_simplify.to_postgis(f"_nodes_simplify_graph_{name}", engine)
+    # edges_simplify.to_postgis(f"_edges_simplify_graph_{name}", engine)
