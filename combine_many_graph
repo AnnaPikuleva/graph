@@ -1,0 +1,163 @@
+CREATE OR REPLACE FUNCTION "public"."_graph_combane"()
+  RETURNS int4
+
+AS
+$BODY$
+
+DECLARE
+
+_table_nodes_arr text[];
+_table_edges_arr text[];
+
+_nodes text;
+_edges text;
+
+_i int;
+	
+BEGIN	
+
+
+SELECT array_agg(table_name::text) into _table_nodes_arr
+FROM information_schema.tables
+WHERE table_schema IN ('graph') and table_name like '%nodes%';
+
+SELECT array_agg(table_name::text) into _table_edges_arr
+FROM information_schema.tables
+WHERE table_schema IN ('graph') and table_name like '%edges%';
+
+-- RAISE NOTICE '________table_name_arr %', array_length(_table_name_arr, 1);
+
+CREATE TABLE "graph"."_edges_graph_thailand" (
+  "sourse" int8,
+  "target" int8,
+  "key" int8,
+  "osmid" int8,
+  "bridge" text COLLATE "pg_catalog"."default",
+  "oneway" text,
+  "ref" text COLLATE "pg_catalog"."default",
+  "highway" text COLLATE "pg_catalog"."default",
+  "reversed" text,
+  "length" float8,
+  "speed_kph" float8,
+  "lanes" text COLLATE "pg_catalog"."default",
+  "service" text COLLATE "pg_catalog"."default",
+  "width" text COLLATE "pg_catalog"."default",
+  "access" text COLLATE "pg_catalog"."default",
+  "name" text COLLATE "pg_catalog"."default",
+  "maxspeed" text COLLATE "pg_catalog"."default",
+  "junction" text COLLATE "pg_catalog"."default",
+  "tunnel" text COLLATE "pg_catalog"."default",
+  "geometry" geometry(LINESTRING, 3857)
+)
+;
+
+CREATE TABLE "graph"."_nodes_graph_thailand" (
+  "y" float8,
+  "x" float8,
+  "street_count" int8,
+  "lon" float8,
+  "lat" float8,
+  "highway" text COLLATE "pg_catalog"."default",
+  "geometry" geometry(POINT, 3857)
+)
+;
+
+
+
+-- SELECT array_agg(table_name::text) FROM information_schema.tables
+-- WHERE table_schema IN(''graph'') and table_name like ''%edges%''';
+
+_i = 0;
+FOREACH _nodes IN ARRAY _table_nodes_arr
+				
+		LOOP
+		begin 
+		
+		EXECUTE'ALTER TABLE '||_nodes||' DROP COLUMN IF EXISTS ref';
+		EXECUTE'ALTER TABLE '||_nodes||' ADD COLUMN IF NOT EXISTS street_count int8';
+-- 		EXECUTE'ALTER TABLE '||_nodes||' DROP COLUMN IF EXISTS street_count';
+
+		EXECUTE'
+		insert into "graph"."_nodes_graph_thailand" 
+		select 
+			y,
+			x,
+			street_count,
+			lon,
+			lat,
+			highway,
+			geometry
+		from '||_nodes||'';
+		
+		EXECUTE'drop table IF EXISTS '||_nodes||'';
+		
+		
+		RAISE NOTICE '_i %', _i;
+
+		_i := _i + 1;
+		end;
+		END LOOP;
+
+_i = 0;
+
+FOREACH _edges IN ARRAY _table_edges_arr
+				
+		LOOP
+		begin 
+
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS ref text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS lanes text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS width text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS access text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS service text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS tunnel text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS junction text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS access text';
+		EXECUTE'ALTER TABLE '||_edges||' ADD COLUMN IF NOT EXISTS maxspeed text';
+		
+		EXECUTE'
+		insert into "graph"."_edges_graph_thailand" 
+		select
+			u,
+			v,
+			key,
+			osmid,
+			bridge,
+			oneway,
+			ref,
+			highway,
+			reversed,
+			length,
+			speed_kph,
+			lanes,
+			service,
+			width,
+			access,
+			name,
+			maxspeed,
+			junction,
+			tunnel,
+			geometry
+		from '||_edges||'';
+		
+		EXECUTE'drop table IF EXISTS '||_edges||'';
+
+		
+		RAISE NOTICE '_i %', _i;
+
+		_i := _i + 1;
+		end;
+		END LOOP;
+		
+		
+
+RETURN 1;
+
+	
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+--   ROWS 1
+select * from "public"."_graph_combane"();
+
